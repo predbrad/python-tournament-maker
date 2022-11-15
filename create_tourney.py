@@ -64,6 +64,7 @@ for sport in sports:
                     joint_availability = set(player_availability) & set(opponent_availability)
                     if len(joint_availability) > 0:
                         # TODO add court time here
+                        # TODO check players schedules in other events as well
                         players_to_schedule.remove(opponent)
                         scheduled_players.append(opponent)
                         scheduled_players.append(player)
