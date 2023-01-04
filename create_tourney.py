@@ -44,7 +44,7 @@ def setup_player_schedules(players):
     
     player_schedules={}
 
-    #TODO look for people with the same name
+    #TODO look for people with the same name, this is currently not used
     for player in players:
         individual_names = [x.strip() for x in player['Player or Team Name'].split('+')]
         for name in individual_names:
@@ -69,48 +69,52 @@ def setup_court_schedules(courts):
     return court_schedules
 
 def schedule_court(player, opponent, court_schedules, sport, duration, start_dt, end_dt, time_preference=[]):
-    for court_name in court_schedules:
-        if sport in court_schedules[court_name]['sports']:
-            court_open = court_schedules[court_name]['open_time']
-            court_close = court_schedules[court_name]['close_time']
+    
+    total_events = int(((end_dt-start_dt).total_seconds() / 60) / duration)
+    for event_counter in range(total_events): 
+        for court_name in court_schedules:
             events = court_schedules[court_name]['events']
+            if sport in court_schedules[court_name]['sports'] and len(events) < event_counter:
+                court_open = court_schedules[court_name]['open_time']
+                court_close = court_schedules[court_name]['close_time']
 
-            if 'anytime' in time_preference or 'early' in time_preference:
-                test_start = start_dt
-            elif 'late' in time_preference:
-                test_start = start_dt.replace(hour=17)
-            else:
-                test_start = start_dt
-
-            test_start = test_start
-            test_end = test_start + datetime.timedelta(minutes=duration)
-                       
-            while test_end < end_dt:
-                if len(events) == 0:
-                    if test_start.time() > court_open.time() and test_end.time() < court_close.time():
-                        return { 
-                            'player': player["Player or Team Name"],
-                            'opponent': opponent["Player or Team Name"],
-                            'court_name': court_name,
-                            'match_start' : test_start,
-                            'match_end': test_end
-                            }
+                if 'anytime' in time_preference or 'early' in time_preference:
+                    test_start = start_dt
+                elif 'late' in time_preference:
+                    test_start = start_dt.replace(hour=17)
                 else:
-                    conflict = False
-                    for event in events:
-                        if not (test_start.time() > court_open.time() and test_end.time() < court_close.time() and test_start < event['match_start'] and test_start < event['match_end'] and test_end < event['match_start'] and test_end < event['match_end']) and not (test_start.time() > court_open.time() and test_end.time() < court_close.time() and test_start > event['match_start'] and test_start > event['match_end'] and test_end > event['match_start'] and test_end > event['match_end']):
-                            conflict = True
+                    test_start = start_dt
 
-                    if conflict == False:
-                        return { 
-                            'player': player["Player or Team Name"],
-                            'opponent': opponent["Player or Team Name"],
-                            'court_name': court_name,
-                            'match_start' : test_start,
-                            'match_end': test_end
-                            }
-                test_start = test_start + datetime.timedelta(minutes=5)
-                test_end = test_end + datetime.timedelta(minutes=5)
+                test_start = test_start
+                test_end = test_start + datetime.timedelta(minutes=duration)
+                           
+                while test_end < end_dt:
+                    if len(events) == 0:
+                        if test_start.time() > court_open.time() and test_end.time() < court_close.time():
+                            return { 
+                                'player': player["Player or Team Name"],
+                                'opponent': opponent["Player or Team Name"],
+                                'court_name': court_name,
+                                'match_start' : test_start,
+                                'match_end': test_end
+                                }
+                    else:
+                        conflict = False
+                        
+                        for event in events:
+                            if not (test_start.time() >= court_open.time() and test_end.time() <= court_close.time() and test_start <= event['match_start'] and test_start <= event['match_end'] and test_end <= event['match_start'] and test_end <= event['match_end']) and not (test_start.time() >= court_open.time() and test_end.time() <= court_close.time() and test_start >= event['match_start'] and test_start >= event['match_end'] and test_end >= event['match_start'] and test_end >= event['match_end']):
+                                conflict = True
+
+                        if conflict == False:
+                            return { 
+                                'player': player["Player or Team Name"],
+                                'opponent': opponent["Player or Team Name"],
+                                'court_name': court_name,
+                                'match_start' : test_start,
+                                'match_end': test_end
+                                }
+                    test_start = test_start + datetime.timedelta(minutes=5)
+                    test_end = test_end + datetime.timedelta(minutes=5)
     return { 'court_name': 'failed' }
 
 
@@ -172,7 +176,6 @@ def main():
                         joint_availability = set(player_availability) & set(opponent_availability)
                         if len(joint_availability) > 0:
                             court_event = schedule_court(player, opponent, court_schedules, sport_name, duration, tourney_start, tourney_end, joint_availability)
-                            print(court_event)
                             if 'failed' not in court_event['court_name']:
                                 court_schedules[court_event['court_name']]['events'].append(court_event)
                                 players_to_schedule.remove(opponent)
